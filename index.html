@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>앤트빌리지 v2</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%90%9C%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap" rel="stylesheet">
@@ -1024,10 +1025,10 @@ const dlg=document.getElementById('dlg'),dlgWho=dlg.querySelector('.who'),dlgLin
 const promptEl=document.getElementById('prompt'),actBtn=document.getElementById('act');
 const coarse=matchMedia('(pointer:coarse)').matches;
 let talk=null;
-function linesOf(a){return (a.talk.withLamp&&hasLantern)?a.talk.withLamp:a.talk.lines;}
-function showLine(){const L=linesOf(talk.a);dlgWho.textContent=talk.a.talk.name;dlgLine.textContent=L[talk.i];
+function linesOf(a){const T=a&&a.talk;if(!T)return [];return (T.withLamp&&hasLantern)?T.withLamp:(T.lines||[]);} // 대사 묶음이 없으면(이벤트 중 등) 빈 목록
+function showLine(){const L=linesOf(talk.a);if(talk.i>=L.length){endTalk();return;}dlgWho.textContent=talk.a.talk.name;dlgLine.textContent=L[talk.i];
   dlgMore.textContent=talk.i<L.length-1?(coarse?'말 걸기를 눌러 계속':'E로 계속'):(coarse?'말 걸기를 눌러 닫기':'E로 닫기');dlg.style.display='block';sfx('blip');narrate(VO_LINE[L[talk.i]],L[talk.i],talk.a.talk.name);}
-function startTalk(a){pqTalk(a);talk={a,i:0};a.talking=true;showLine();actBtn.textContent='다음';}
+function startTalk(a){if(!a||!linesOf(a).length)return false;pqTalk(a);talk={a,i:0};a.talking=true;showLine();actBtn.textContent='다음';return true;}
 function endTalk(){if(talk){talk.a.talking=false;talk=null;hush();}dlg.style.display='none';actBtn.textContent='말 걸기';}
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
@@ -2631,7 +2632,12 @@ const clock=new THREE.Clock();
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let lastDraw=0,idleSince=0,lastTick=0;
-function frame(){
+function frame(){let ok=false;try{frameBody();ok=true;}catch(e){frameError(e);}if(!ok)requestAnimationFrame(frame);}
+/* 안전장치: 프레임 안에서 오류가 나도 게임이 멈추지 않게 — 오류는 콘솔에 남기고(같은 오류는 한 번만), 이번 화면은 그려 두고 다음 프레임을 잇는다 */
+const frameErrSeen=new Set();
+function frameError(e){const k=String(e&&e.stack||e);if(!frameErrSeen.has(k)){frameErrSeen.add(k);console.error('앤트빌리지: 프레임 오류 (게임은 계속 진행)',e);}
+  try{renderer.render(scene,camera);}catch(e2){}}
+function frameBody(){
   if(POWER.on){const n=performance.now();if(n-lastTick<30){requestAnimationFrame(frame);return;}lastTick=n;}
   const rawDt=Math.min(.05,clock.getDelta());const dt=dexOpen?0:rawDt;if(dexCool>0)dexCool-=rawDt;time+=dt;
   rippleTex.offset.x+=dt*.012;rippleTex.offset.y-=dt*.025;fallTex.offset.y+=dt*1.1;
@@ -2730,14 +2736,14 @@ function frame(){
 
   /* talk */
   let near=null,nd=2.8;
-  if(mode==='walk'){talkers.forEach(a=>{a.root.getWorldPosition(wp);const d=Math.hypot(wp.x-P.x,wp.z-P.z)-(a.talkR||(a.merchant?1.9:0));if(d<nd&&Math.abs(wp.y-P.y)<2){nd=d;near=a;}});}
+  if(mode==='walk'){talkers.forEach(a=>{if(!linesOf(a).length)return;a.root.getWorldPosition(wp);const d=Math.hypot(wp.x-P.x,wp.z-P.z)-(a.talkR||(a.merchant?1.9:0));if(d<nd&&Math.abs(wp.y-P.y)<2){nd=d;near=a;}});}
   let spot=null;
   if(mode==='walk'&&!talk&&!dexOpen&&EV.state==='idle'&&!ITEM.phase){let sd=1.9;SPOTS.forEach(s=>{if(s.found)return;const d=Math.hypot(s.x-P.x,s.z-P.z);if(d<sd){sd=d;spot=s;}});SECRETS.forEach(s=>{if(s.found)return;const d=Math.hypot(s.x-P.x,s.z-P.z)-.5;if(d<sd){sd=d;spot=s;}});if(spot)near=null;}
   if(zone==='queen'&&near===queen&&!['meet','wings','done'].includes(QS.stage))near=null;
   if(talk){talk.a.root.getWorldPosition(wp);if(Math.hypot(wp.x-P.x,wp.z-P.z)>4.2+(talk.a.talkR||(talk.a.merchant?1.9:0)))endTalk();}
   if(dexOpen||dexCool>0)actReq=false;
   if(actReq){actReq=false;
-    if(talk){talk.i++;if(talk.i>=linesOf(talk.a).length){const ta=talk.a;endTalk();if(ta.talk.onDone)ta.talk.onDone();}else showLine();}
+    if(talk){talk.i++;if(talk.i>=linesOf(talk.a).length){const T=talk.a.talk;endTalk();if(T&&T.onDone)T.onDone();}else showLine();}
     else if(spot)inspectSpot(spot);
     else if(near&&EV.state==='idle')startTalk(near);}
   {const lab=spot?'살펴보기':'말 걸기';if(!talk&&actBtn.textContent!==lab)actBtn.textContent=lab;const pl=spot?'E 살펴보기':'E 말 걸기';if(promptEl.textContent!==pl)promptEl.textContent=pl;}
