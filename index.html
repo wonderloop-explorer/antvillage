@@ -2541,8 +2541,8 @@ function cartEvent(dt,P){
     if(CEV.jars.length&&CEV.jars.every(o=>o.state==='home')){CEV.st='thanks';CEV.t=0;missionT=0;missionEl.classList.remove('on');
       say('짐수레 개미','휴, 하나도 안 깨졌어! 도와줘서 정말 고마워. 보답으로 저장고 가는 길을 알려 줄게. 내 냄새 길을 따라와!',7.4);
       const cx=chanX(0);CEV.path=new THREE.CatmullRomCurve3([[cp.x,cp.z],[cx-4,2],[cx-3,0],[cx+3,0],[cx+7,-2],[16,-3],[22,-10],[25.5,-14.6]].map(q=>new THREE.Vector3(q[0],0,q[1])));CEV.len=CEV.path.getLength();CEV.u=0;}}
-  else if(CEV.st==='thanks'){if(CEV.t>7.6){CEV.st='guide';setQuest('짐수레 개미의 냄새 길을 따라가요');}}
-  else if(CEV.st==='guide'){const far=Math.hypot(P.x-cp.x,P.z-cp.z)>7.5,go=!far&&CEV.u<1;if(go)CEV.u=Math.min(1,CEV.u+dt*2.7/CEV.len);
+  else if(CEV.st==='thanks'){if(CEV.t>7.6&&(!voBusy()||CEV.t>16)){CEV.st='guide';setQuest('짐수레 개미의 냄새 길을 따라가요');}}
+  else if(CEV.st==='guide'){const far=Math.hypot(P.x-cp.x,P.z-cp.z)>7.5,go=!far&&!talk&&CEV.u<1;if(go)CEV.u=Math.min(1,CEV.u+dt*2.7/CEV.len);
     const p=CEV.path.getPointAt(CEV.u),q=CEV.path.getPointAt(Math.min(1,CEV.u+.01));cp.set(p.x,antH(p.x,p.z),p.z);if(CEV.u<1){gLook.set(q.x,cp.y,q.z);cart.g.lookAt(gLook);}
     if(go){cart.ant.phase+=dt*8;animLegs(cart.ant,1);cart.body.children.forEach(c=>{if(c.geometry&&c.geometry.type==='CylinderGeometry'&&c.position.y===.42)c.rotation.x-=dt*6;});}else animLegs(cart.ant,0);
     CEV.dotT+=dt;if(go&&CEV.dotT>.32){CEV.dotT=0;const D=CEV_DOTS.find(x=>x.a<=0)||CEV_DOTS[0];D.a=1;D.d.visible=true;const bx=cp.x-Math.sin(cart.g.rotation.y)*2.6,bz=cp.z-Math.cos(cart.g.rotation.y)*2.6;D.d.position.set(bx,antH(bx,bz)+.05,bz);}
@@ -2745,7 +2745,7 @@ function frameBody(){
   if(actReq){actReq=false;
     if(talk){talk.i++;if(talk.i>=linesOf(talk.a).length){const T=talk.a.talk;endTalk();if(T&&T.onDone)T.onDone();}else showLine();}
     else if(spot)inspectSpot(spot);
-    else if(near&&EV.state==='idle')startTalk(near);}
+    else if(near&&EV.state==='idle'&&CEV.st!=='thanks')startTalk(near);}
   {const lab=spot?'살펴보기':'말 걸기';if(!talk&&actBtn.textContent!==lab)actBtn.textContent=lab;const pl=spot?'E 살펴보기':'E 말 걸기';if(promptEl.textContent!==pl)promptEl.textContent=pl;}
   const showFor=talk?talk.a:near;
   if(showFor&&!talk&&EV.state==='idle'&&!ITEM.phase){showFor.head.getWorldPosition(wp);bubbleSprite.position.set(wp.x,wp.y+1.5,wp.z);bubbleSprite.visible=true;bubbleSprite.position.y+=Math.sin(time*4)*.06;{const k=Math.min(1,camera.position.distanceTo(bubbleSprite.position)/7);bubbleSprite.scale.set(1.1*k,.82*k,1);}}
